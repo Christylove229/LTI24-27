@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Prevent horizontal overflow on all screens */
+html, body, #root {
+  height: 100%;
+}
+body {
+  overflow-x: hidden;
+}
+
+/* Route fade-in animation */
+@keyframes route-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.route-fade-enter {
+  animation: route-fade 220ms ease-out both;
+}
