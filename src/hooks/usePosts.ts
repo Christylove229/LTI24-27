@@ -25,24 +25,43 @@ export const usePosts = (limit = 10) => {
       // Get comment counts separately
       const postsWithCounts = await Promise.all(
         (data || []).map(async (post) => {
-          const { count: commentCount } = await supabase
-            .from('comments')
-            .select('*', { count: 'exact', head: true })
-            .eq('post_id', post.id);
+          try {
+            const { count: commentCount, error: commentError } = await supabase
+              .from('comments')
+              .select('*', { count: 'exact', head: true })
+              .eq('post_id', post.id);
 
-          const { count: reactionCount } = await supabase
-            .from('reactions')
-            .select('*', { count: 'exact', head: true })
-            .eq('target_type', 'post')
-            .eq('target_id', post.id);
-
-          return {
-            ...post,
-            _count: {
-              comments: commentCount || 0,
-              reactions: reactionCount || 0
+            if (commentError) {
+              console.error('Error fetching comment count:', commentError);
             }
-          };
+
+            const { count: reactionCount, error: reactionError } = await supabase
+              .from('reactions')
+              .select('*', { count: 'exact', head: true })
+              .eq('target_type', 'post')
+              .eq('target_id', post.id);
+
+            if (reactionError) {
+              console.error('Error fetching reaction count:', reactionError);
+            }
+
+            return {
+              ...post,
+              _count: {
+                comments: commentCount || 0,
+                reactions: reactionCount || 0
+              }
+            };
+          } catch (error) {
+            console.error('Error in count fetching:', error);
+            return {
+              ...post,
+              _count: {
+                comments: 0,
+                reactions: 0
+              }
+            };
+          }
         })
       );
 
@@ -124,21 +143,171 @@ export const usePosts = (limit = 10) => {
     if (!user) return;
 
     try {
-      const { error } = await supabase
+      // Vérifier si l'utilisateur a déjà une réaction sur ce post
+      const { data: existingReaction, error: fetchError } = await supabase
         .from('reactions')
-        .upsert({
-          user_id: user.id,
-          target_type: 'post',
-          target_id: postId,
-          reaction_type: reactionType
-        });
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('target_type', 'post')
+        .eq('target_id', postId)
+        .single();
 
-      if (error) throw error;
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        // PGRST116 = no rows returned, which is fine
+        throw fetchError;
+      }
+
+      if (existingReaction) {
+        // Si la réaction est la même, la supprimer (toggle)
+        if (existingReaction.reaction_type === reactionType) {
+          const { error: deleteError } = await supabase
+            .from('reactions')
+            .delete()
+            .eq('id', existingReaction.id);
+
+          if (deleteError) throw deleteError;
+          toast.success('Réaction supprimée');
+        } else {
+          // Sinon, changer le type de réaction
+          const { error: updateError } = await supabase
+            .from('reactions')
+            .update({ reaction_type: reactionType })
+            .eq('id', existingReaction.id);
+
+          if (updateError) throw updateError;
+          toast.success('Réaction mise à jour');
+        }
+      } else {
+        // Ajouter une nouvelle réaction
+        const { error: insertError } = await supabase
+          .from('reactions')
+          .insert({
+            user_id: user.id,
+            target_type: 'post',
+            target_id: postId,
+            reaction_type: reactionType
+          });
+
+        if (insertError) throw insertError;
+        toast.success('Réaction ajoutée');
+      }
+
+      // Rafraîchir les posts pour mettre à jour les compteurs
+      fetchPosts();
     } catch (error) {
-      console.error('Error adding reaction:', error);
+      console.error('Error managing reaction:', error);
       toast.error('Erreur lors de la réaction');
     }
-  }, [user]);
+  }, [user, fetchPosts]);
+
+  const addComment = useCallback(async (postId: string, content: string, parentCommentId?: string) => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('comments')
+        .insert({
+          author_id: user.id,
+          post_id: postId,
+          content,
+          ...(parentCommentId && { parent_comment_id: parentCommentId })
+        })
+        .select(`
+          *,
+          author:profiles!comments_author_id_fkey(*)
+        `)
+        .single();
+
+      if (error) throw error;
+
+      // Rafraîchir les posts pour mettre à jour les compteurs
+      fetchPosts();
+      toast.success(parentCommentId ? 'Réponse ajoutée' : 'Commentaire ajouté');
+      return data;
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      toast.error('Erreur lors de l\'ajout du commentaire');
+      throw error;
+    }
+  }, [user, fetchPosts]);
+
+  const getComments = useCallback(async (postId: string) => {
+    try {
+      // Utiliser une requête simple au lieu de la fonction RPC
+      const { data, error } = await supabase
+        .from('comments')
+        .select(`
+          id,
+          content,
+          created_at,
+          parent_comment_id,
+          author:profiles!comments_author_id_fkey(id, full_name, avatar_url)
+        `)
+        .eq('post_id', postId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      // Organiser les commentaires en structure imbriquée côté client
+      const commentsMap = new Map<string, any>();
+      const topLevelComments: any[] = [];
+
+      // D'abord, créer une map de tous les commentaires avec comptage des réponses
+      data?.forEach((comment: any) => {
+        commentsMap.set(comment.id, {
+          ...comment,
+          author_username: comment.author?.full_name || 'Utilisateur anonyme',
+          author_avatar_url: comment.author?.avatar_url,
+          replies: [],
+          replies_count: 0
+        });
+      });
+
+      // Compter les réponses pour chaque commentaire
+      data?.forEach((comment: any) => {
+        if (comment.parent_comment_id) {
+          const parent = commentsMap.get(comment.parent_comment_id);
+          if (parent) {
+            parent.replies_count += 1;
+            parent.replies.push(commentsMap.get(comment.id));
+          }
+        }
+      });
+
+      // Collecter les commentaires de niveau supérieur
+      data?.forEach((comment: any) => {
+        if (!comment.parent_comment_id) {
+          topLevelComments.push(commentsMap.get(comment.id));
+        }
+      });
+
+      return topLevelComments;
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+      return [];
+    }
+  }, []);
+
+  const deleteComment = useCallback(async (commentId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('comments')
+        .delete()
+        .eq('id', commentId)
+        .eq('author_id', user.id); // Sécurité : seulement son propre commentaire
+
+      if (error) throw error;
+
+      // Rafraîchir les posts pour mettre à jour les compteurs
+      fetchPosts();
+      toast.success('Commentaire supprimé');
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      toast.error('Erreur lors de la suppression du commentaire');
+    }
+  }, [user, fetchPosts]);
 
   const loadMore = useCallback(() => {
     if (!loading && hasMore) {
@@ -183,6 +352,9 @@ export const usePosts = (limit = 10) => {
     createPost,
     deletePost,
     addReaction,
+    addComment,
+    getComments,
+    deleteComment,
     loadMore,
     refresh: () => fetchPosts()
   };

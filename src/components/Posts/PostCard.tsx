@@ -1,20 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
-  HeartIcon,
   ChatBubbleOvalLeftIcon,
   ShareIcon,
   EllipsisHorizontalIcon,
-  HandThumbUpIcon,
-  FaceSmileIcon
+  HandThumbUpIcon
 } from '@heroicons/react/24/outline';
-import {
-  HeartIcon as HeartIconSolid,
-  HandThumbUpIcon as HandThumbUpIconSolid
-} from '@heroicons/react/24/solid';
 import { Post } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { EmojiSelector } from './EmojiSelector';
+import { CommentsSection } from './CommentsSection';
+import { ShareModal } from './ShareModal';
+import { ReactionDisplay } from './ReactionDisplay';
+import { ReactionCounts, getReactionCounts, getUserReaction } from '../../utils/reactionUtils';
 
 interface PostCardProps {
   post: Post;
@@ -26,8 +25,58 @@ interface PostCardProps {
 const PostCard: React.FC<PostCardProps> = ({ post, onReact, onComment, onDelete }) => {
   const { user, profile } = useAuth();
   const [showActions, setShowActions] = useState(false);
+  const [showEmojiSelector, setShowEmojiSelector] = useState(false);
+  const [showComments, setShowComments] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [reactionCounts, setReactionCounts] = useState<ReactionCounts>({
+    like: 0,
+    love: 0,
+    laugh: 0,
+    annoyed: 0,
+    clap: 0,
+    cry: 0,
+    angry: 0
+  });
+  const [userReaction, setUserReaction] = useState<string | null>(null);
 
   const canDelete = user && (user.id === post.author_id || profile?.role === 'admin');
+
+  useEffect(() => {
+    const loadReactionData = async () => {
+      if (post.id) {
+        const [counts, userReact] = await Promise.all([
+          getReactionCounts('post', post.id),
+          user ? getUserReaction('post', post.id, user.id) : Promise.resolve(null)
+        ]);
+        setReactionCounts(counts);
+        setUserReaction(userReact);
+      }
+    };
+
+    loadReactionData();
+  }, [post.id, user]);
+
+  const handleReact = (reactionType: string) => {
+    if (userReaction === reactionType) {
+      // Retirer la réaction
+      onReact(post.id, reactionType);
+      setUserReaction(null);
+      setReactionCounts(prev => ({
+        ...prev,
+        [reactionType]: prev[reactionType as keyof ReactionCounts] - 1
+      }));
+    } else {
+      // Changer ou ajouter la réaction
+      const oldReaction = userReaction;
+      onReact(post.id, reactionType);
+      setUserReaction(reactionType);
+      setReactionCounts(prev => ({
+        ...prev,
+        [reactionType]: prev[reactionType as keyof ReactionCounts] + 1,
+        ...(oldReaction && { [oldReaction]: prev[oldReaction as keyof ReactionCounts] - 1 })
+      }));
+    }
+  };
 
   const renderMedia = () => {
     if (post.image_url) {
@@ -152,19 +201,61 @@ const PostCard: React.FC<PostCardProps> = ({ post, onReact, onComment, onDelete 
 
       {/* Actions */}
       <div className="flex items-center justify-between pt-3 border-t border-gray-200 dark:border-gray-700">
+        {/* Reaction Display */}
+        {Object.values(reactionCounts).some(count => count > 0) && (
+          <div className="flex-1">
+            <ReactionDisplay
+              counts={reactionCounts}
+              totalCount={Object.values(reactionCounts).reduce((sum, count) => sum + count, 0)}
+            />
+          </div>
+        )}
+
         <div className="flex items-center space-x-6">
+          <div className="relative">
+            <button
+              onMouseEnter={() => setShowEmojiSelector(true)}
+              onMouseLeave={() => setShowEmojiSelector(false)}
+              onClick={() => setShowEmojiSelector(!showEmojiSelector)}
+              className={`flex items-center space-x-2 transition-colors ${
+                userReaction
+                  ? 'text-blue-600 dark:text-blue-400'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400'
+              }`}
+            >
+              <HandThumbUpIcon className="h-5 w-5" />
+              <span className="text-sm">
+                J'aime {Object.values(reactionCounts).reduce((sum, count) => sum + count, 0) > 0 &&
+                  `(${Object.values(reactionCounts).reduce((sum, count) => sum + count, 0)})`}
+              </span>
+            </button>
+
+            {showEmojiSelector && (
+              <EmojiSelector
+                onSelect={(emoji) => {
+                  // Convert emoji to reaction type
+                  const reactionMap: { [key: string]: string } = {
+                    '😒': 'annoyed',
+                    '🤣': 'laugh',
+                    '🥰': 'love',
+                    '👍': 'like',
+                    '👏': 'clap',
+                    '😭': 'cry',
+                    '😡': 'angry'
+                  };
+                  handleReact(reactionMap[emoji] || 'like');
+                  setShowEmojiSelector(false);
+                }}
+                onClose={() => setShowEmojiSelector(false)}
+              />
+            )}
+          </div>
+
           <button
-            onClick={() => onReact(post.id, 'like')}
-            className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-          >
-            <HandThumbUpIcon className="h-5 w-5" />
-            <span className="text-sm">
-              J'aime {post._count?.reactions ? `(${post._count.reactions})` : ''}
-            </span>
-          </button>
-          
-          <button
-            onClick={() => onComment(post.id)}
+            onClick={() => {
+              setShowComments(!showComments);
+              onComment(post.id);
+            }}
             className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
           >
             <ChatBubbleOvalLeftIcon className="h-5 w-5" />
@@ -172,13 +263,27 @@ const PostCard: React.FC<PostCardProps> = ({ post, onReact, onComment, onDelete 
               Commenter {post._count?.comments ? `(${post._count.comments})` : ''}
             </span>
           </button>
-          
-          <button className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+
+          <button
+            onClick={() => setShowShareModal(true)}
+            className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+          >
             <ShareIcon className="h-5 w-5" />
             <span className="text-sm">Partager</span>
           </button>
         </div>
       </div>
+
+      {/* Comments Section */}
+      <CommentsSection postId={post.id} isOpen={showComments} />
+
+      {/* Share Modal */}
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        postId={post.id}
+        postContent={post.content}
+      />
     </div>
   );
 };

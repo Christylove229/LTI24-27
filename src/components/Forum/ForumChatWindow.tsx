@@ -9,9 +9,10 @@ import toast from 'react-hot-toast';
 
 interface ForumChatWindowProps {
   room: ForumRoom;
+  onMessageSent?: (message: ForumMessage) => void;
 }
 
-export const ForumChatWindow: React.FC<ForumChatWindowProps> = ({ room }) => {
+export const ForumChatWindow: React.FC<ForumChatWindowProps> = ({ room, onMessageSent }) => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<ForumMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,6 +72,14 @@ export const ForumChatWindow: React.FC<ForumChatWindowProps> = ({ room }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const handleMessageSent = (message: ForumMessage) => {
+    setMessages(prev => [...prev, message]);
+    // Scroll to bottom
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  };
+
   const handleLoadMore = () => {
     if (messages.length > 0 && hasMore) {
       const oldestMessage = messages[0];
@@ -115,12 +124,7 @@ export const ForumChatWindow: React.FC<ForumChatWindowProps> = ({ room }) => {
       <div className="border-t border-gray-200 p-4">
         <ForumMessageInput
           roomId={room.id}
-          onMessageSent={() => {
-            // Scroll vers le bas après envoi
-            setTimeout(() => {
-              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-            }, 100);
-          }}
+          onMessageSent={handleMessageSent}
         />
       </div>
     </div>

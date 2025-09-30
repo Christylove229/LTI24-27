@@ -11,6 +11,7 @@ import {
   AcademicCapIcon
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
+import { useRoomUnreadCount } from '../../hooks/useRoomUnreadCount';
 
 const navigation = [
   { name: 'Accueil', href: '/', icon: HomeIcon },
@@ -26,6 +27,7 @@ const navigation = [
 
 const Sidebar: React.FC = () => {
   const { profile } = useAuth();
+  const { unreadCount } = useRoomUnreadCount('00000000-0000-0000-0000-000000000001'); // Grande Salle ID
 
   return (
     <div className="hidden md:flex md:w-56 md:flex-col md:fixed md:inset-y-0 z-50">
@@ -59,7 +61,12 @@ const Sidebar: React.FC = () => {
                       className={`${isActive ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500 dark:group-hover:text-gray-300'} mr-3 flex-shrink-0 h-5 w-5 transition-colors duration-200`}
                       aria-hidden="true"
                     />
-                    {item.name}
+                    <span className="flex-1">{item.name}</span>
+                    {item.name === 'Grande Salle' && unreadCount > 0 && (
+                      <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    )}
                   </>
                 )}
               </NavLink>

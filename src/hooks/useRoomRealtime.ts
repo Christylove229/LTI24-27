@@ -31,12 +31,10 @@ export const useRoomMessages = ({
           filter: `room_id=eq.${roomId}`
         },
         async (payload) => {
-          // Récupérer le message complet avec les infos de l'expéditeur
-          const { data: fullMessage } = await supabase
-            .from('view_room_messages_with_sender')
-            .select('*')
-            .eq('id', payload.new.id)
-            .single();
+          // Récupérer le message complet avec les infos de l'expéditeur via RPC
+          const { data: messages } = await supabase
+            .rpc('get_room_messages_with_sender', { p_room_id: roomId });
+          const fullMessage = (messages || []).find((m: any) => m.id === payload.new.id);
 
           if (fullMessage) {
             onMessageInsert(fullMessage);

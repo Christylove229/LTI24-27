@@ -1,11 +1,12 @@
 import React, { useState, useRef } from 'react';
 import { forumService } from '../../services/forum';
+import { ForumMessage } from '../../types/forum';
 import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
 
 interface ForumMessageInputProps {
   roomId: string;
-  onMessageSent: () => void;
+  onMessageSent: (message: ForumMessage) => void;
 }
 
 export const ForumMessageInput: React.FC<ForumMessageInputProps> = ({ 
@@ -34,7 +35,9 @@ export const ForumMessageInput: React.FC<ForumMessageInputProps> = ({
       
       console.log('Message sent successfully:', result);
       setContent('');
-      onMessageSent();
+      if (result) {
+        onMessageSent(result);
+      }
       toast.success('Message envoyé !');
     } catch (error) {
       console.error('Error sending message:', error);
@@ -49,7 +52,7 @@ export const ForumMessageInput: React.FC<ForumMessageInputProps> = ({
       setUploading(true);
       const attachmentUrl = await forumService.uploadAttachment(file, user.id);
 
-      await forumService.sendMessage({
+      const result = await forumService.sendMessage({
         room_id: roomId,
         content: file.name,
         type: getFileType(file.type),
@@ -57,7 +60,9 @@ export const ForumMessageInput: React.FC<ForumMessageInputProps> = ({
         attachment_name: file.name
       });
 
-      onMessageSent();
+      if (result) {
+        onMessageSent(result);
+      }
       toast.success('Fichier envoyé avec succès');
     } catch (error) {
       console.error('Error uploading file:', error);
