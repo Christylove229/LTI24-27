@@ -5,7 +5,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { supabase, Notification } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const NotificationDropdown: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -13,6 +13,7 @@ const NotificationDropdown: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!user) return;
@@ -87,6 +88,21 @@ const NotificationDropdown: React.FC = () => {
     }
   };
 
+  const handleNotificationClick = async (notification: Notification) => {
+    // Marquer comme lu si pas encore lu
+    if (!notification.is_read) {
+      await markAsRead(notification.id);
+    }
+
+    // Fermer le dropdown
+    setIsOpen(false);
+
+    // Naviguer vers la publication si c'est une notification de réaction ou commentaire
+    if ((notification.type === 'reaction' || notification.type === 'comment') && notification.data?.post_id) {
+      navigate(`/?post=${notification.data.post_id}`);
+    }
+  };
+
   const markAllAsRead = async () => {
     try {
       await supabase
@@ -153,7 +169,7 @@ const NotificationDropdown: React.FC = () => {
                     className={`p-4 border-b border-gray-200 dark:border-gray-700 last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer ${
                       !notification.is_read ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                     }`}
-                    onClick={() => !notification.is_read && markAsRead(notification.id)}
+                    onClick={() => handleNotificationClick(notification)}
                   >
                     <div className="flex items-start space-x-3">
                       {!notification.is_read && (

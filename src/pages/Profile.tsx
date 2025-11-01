@@ -212,8 +212,19 @@ const Profile: React.FC = () => {
           {/* Actions */}
           <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 dark:border-gray-700">
             <button
-              onClick={signOut}
-              className="px-4 py-2 text-red-600 dark:text-red-400 border border-red-300 dark:border-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              onClick={async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('[Profile] Sign out button clicked');
+                try {
+                  await signOut();
+                } catch (error) {
+                  console.error('[Profile] Error during sign out:', error);
+                }
+              }}
+              className="px-4 py-2 text-red-600 dark:text-red-400 border border-red-300 dark:border-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer"
+              type="button"
+              disabled={loading}
             >
               Se déconnecter
             </button>

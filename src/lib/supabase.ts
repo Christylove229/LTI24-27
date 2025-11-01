@@ -165,7 +165,16 @@ export interface Notification {
   type: 'message' | 'comment' | 'reaction' | 'mention' | 'event' | 'announcement';
   title: string;
   message: string;
-  data?: any;
+  data?: {
+    post_id?: string;
+    comment_id?: string;
+    reaction_type?: string;
+    reactor_id?: string;
+    reactor_name?: string;
+    commenter_id?: string;
+    commenter_name?: string;
+    [key: string]: any;
+  };
   is_read: boolean;
   created_at: string;
 }

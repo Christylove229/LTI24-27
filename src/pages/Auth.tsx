@@ -5,6 +5,8 @@ import SignUpForm from '../components/Auth/SignUpForm';
 const Auth: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
 
+  console.log('[Auth] Component rendering, isLogin:', isLogin);
+
   return isLogin ? (
     <LoginForm onToggleMode={() => setIsLogin(false)} />
   ) : (

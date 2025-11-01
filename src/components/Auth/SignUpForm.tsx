@@ -17,6 +17,7 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ onToggleMode }) => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,7 +30,12 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ onToggleMode }) => {
     setLoading(true);
 
     try {
-      await signUp(formData.email, formData.password, formData.fullName, formData.promo);
+      const result = await signUp(formData.email, formData.password, formData.fullName, formData.promo);
+      if (result && result.needsConfirmation) {
+        setNeedsConfirmation(true);
+      } else {
+        setFormData({ fullName: '', email: '', password: '', confirmPassword: '', promo: '' });
+      }
     } catch (error) {
       // Error is handled in the context
     } finally {
@@ -175,6 +181,38 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ onToggleMode }) => {
             </button>
           </div>
         </form>
+
+        {/* Message de confirmation email */}
+        {needsConfirmation && (
+          <div className="mt-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-green-800 dark:text-green-200">
+                  Vérification email requise
+                </h3>
+                <div className="mt-2 text-sm text-green-700 dark:text-green-300">
+                  <p>
+                    Un email de confirmation a été envoyé à <strong>{formData.email}</strong>.
+                    Cliquez sur le lien dans l'email pour activer votre compte avant de pouvoir vous connecter.
+                  </p>
+                  <p className="mt-2">
+                    <button
+                      onClick={() => setNeedsConfirmation(false)}
+                      className="text-green-600 dark:text-green-400 hover:text-green-500 dark:hover:text-green-300 underline"
+                    >
+                      Retour au formulaire
+                    </button>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

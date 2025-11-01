@@ -16,11 +16,10 @@ import { useRoomUnreadCount } from '../../hooks/useRoomUnreadCount';
 const navigation = [
   { name: 'Accueil', href: '/', icon: HomeIcon },
   { name: 'Messages', href: '/messages', icon: ChatBubbleLeftRightIcon },
-  { name: 'Groupes', href: '/groupes', icon: UserGroupIcon },
+  { name: 'Groupes', href: '/groups', icon: UserGroupIcon },
   { name: 'Grande Salle', href: '/grande-salle', icon: SpeakerWaveIcon },
   { name: 'Ressources', href: '/ressources', icon: BookOpenIcon },
   { name: 'Planning', href: '/planning', icon: CalendarDaysIcon },
-  { name: 'Annonces', href: '/annonces', icon: SpeakerWaveIcon },
   { name: 'Galerie', href: '/galerie', icon: PhotoIcon },
   { name: 'Apprentissage', href: '/apprentissage', icon: AcademicCapIcon },
 ];

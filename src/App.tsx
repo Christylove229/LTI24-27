@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect, useRef } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -7,51 +7,71 @@ import Layout from './components/Layout/Layout';
 import Auth from './pages/Auth';
 import Home from './pages/Home';
 import Messages from './pages/Messages';
-import Groups from './pages/Groups';
 import Forum from './pages/Forum';
 import Resources from './pages/Resources';
 import Schedule from './pages/Schedule';
-import Announcements from './pages/Announcements';
 import Gallery from './pages/Gallery';
 import Learning from './pages/Learning';
 import Profile from './pages/Profile';
-import AdminPanel from './pages/AdminPanel';
+import AdminGuard from './components/Admin/AdminGuard';
+import EmailConfirmation from './pages/EmailConfirmation';
+import Groups from './pages/Groups';
 
-// Get admin route from environment variables
-const ADMIN_ROUTE = import.meta.env.VITE_ADMIN_ROUTE || 'hidden-admin-dashboard-xyz789';
+const ADMIN_ROUTE = import.meta.env.VITE_ADMIN_ROUTE || 'admin';
 
 const AppContent: React.FC = () => {
-  const { user } = useAuth();
+  const { user, loading, isSigningOut } = useAuth();
+  const navigate = useNavigate();
+  const hasRedirectedRef = useRef(false);
 
-  if (!user) {
-    return (
-      <Routes>
-        <Route path="/auth" element={<Auth />} />
-        <Route path="*" element={<Navigate to="/auth" replace />} />
-      </Routes>
-    );
-  }
+  // Redirection après connexion réussie (une seule fois)
+  // Cette logique ne s'exécute que si l'utilisateur est déjà connecté au chargement de l'app
+  // ET qu'on n'est pas en train de se déconnecter
+  useEffect(() => {
+    if (user && !loading && !isSigningOut && !hasRedirectedRef.current) {
+      const currentPath = window.location.pathname;
+      // Ne rediriger que si on est sur une route publique et que l'utilisateur vient de se connecter
+      if (currentPath === '/auth' || currentPath === '/ressources' || currentPath === `/${ADMIN_ROUTE}`) {
+        hasRedirectedRef.current = true;
+        navigate('/', { replace: true });
+      }
+    }
+  }, [user, loading, isSigningOut, navigate]);
 
   return (
     <Routes>
-      <Route path={`/${ADMIN_ROUTE}`} element={<AdminPanel />} />
-      <Route path="/*" element={
+      {/* Routes publiques */}
+      <Route path="/auth" element={<Auth />} />
+      <Route path="/auth/confirm" element={<EmailConfirmation />} />
+      <Route path={`/${ADMIN_ROUTE}`} element={<AdminGuard />} />
+      <Route path="/ressources" element={
         <Layout>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/messages" element={<Messages />} />
-            <Route path="/groupes" element={<Groups />} />
-            <Route path="/grande-salle" element={<Forum />} />
-            <Route path="/ressources" element={<Resources />} />
-            <Route path="/planning" element={<Schedule />} />
-            <Route path="/annonces" element={<Announcements />} />
-            <Route path="/galerie" element={<Gallery />} />
-            <Route path="/apprentissage" element={<Learning />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <Resources />
         </Layout>
       } />
+
+      {/* Routes protégées - seulement si connecté */}
+      {user ? (
+        <Route path="/*" element={
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/messages" element={<Messages />} />
+              <Route path="/groups" element={<Groups />} />
+              <Route path="/groups/:groupId" element={<Groups />} />
+              <Route path="/grande-salle" element={<Forum />} />
+              <Route path="/planning" element={<Schedule />} />
+              <Route path="/galerie" element={<Gallery />} />
+              <Route path="/apprentissage" element={<Learning />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Layout>
+        } />
+      ) : (
+        /* Redirection vers auth pour toutes les autres routes */
+        <Route path="*" element={<Navigate to="/auth" replace />} />
+      )}
     </Routes>
   );
 };

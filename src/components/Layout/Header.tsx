@@ -2,12 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   MagnifyingGlassIcon,
-  BellIcon,
   EnvelopeIcon,
   SunIcon,
   MoonIcon,
-  Bars3Icon,
-  XMarkIcon
+  Bars3Icon
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -131,7 +129,7 @@ const Header: React.FC = () => {
               <NotificationDropdown />
 
               {/* Profile dropdown */}
-              <div className="relative">
+              <div className="relative group">
                 <Link
                   to="/profile"
                   className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -153,6 +151,33 @@ const Header: React.FC = () => {
                     {profile?.full_name?.split(' ')[0]}
                   </span>
                 </Link>
+                
+                {/* Dropdown menu */}
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                  <div className="py-1">
+                    <Link
+                      to="/profile"
+                      className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      Mon profil
+                    </Link>
+                    <button
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('[Header] Sign out button clicked');
+                        try {
+                          await signOut();
+                        } catch (error) {
+                          console.error('[Header] Error during sign out:', error);
+                        }
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      Se déconnecter
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

@@ -1,16 +1,20 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { usePosts } from '../hooks/usePosts';
+import { usePostNavigation } from '../hooks/usePostNavigation';
 import PostCard from '../components/Posts/PostCard';
 import CreatePost from '../components/Posts/CreatePost';
-import { usePosts } from '../hooks/usePosts';
 import { useAuth } from '../contexts/AuthContext';
 import { useOnlineUsers } from '../hooks/useRealtime';
 
 const Home: React.FC = () => {
   const { posts, loading, hasMore, createPost, deletePost, addReaction, loadMore } = usePosts();
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const onlineUsers = useOnlineUsers();
   const [showComments, setShowComments] = useState<string | null>(null);
+  
+  // Utiliser le hook pour la navigation vers les posts
+  usePostNavigation();
 
   const handleComment = (postId: string) => {
     setShowComments(showComments === postId ? null : postId);

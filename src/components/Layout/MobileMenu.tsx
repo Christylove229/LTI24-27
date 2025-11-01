@@ -12,6 +12,7 @@ import {
   PhotoIcon,
   AcademicCapIcon
 } from '@heroicons/react/24/outline';
+import { useAuth } from '../../contexts/AuthContext';
 
 const navigation = [
   { name: 'Accueil', href: '/', icon: HomeIcon },
@@ -20,7 +21,6 @@ const navigation = [
   { name: 'Grande Salle', href: '/grande-salle', icon: SpeakerWaveIcon },
   { name: 'Ressources', href: '/ressources', icon: BookOpenIcon },
   { name: 'Planning', href: '/planning', icon: CalendarDaysIcon },
-  { name: 'Annonces', href: '/annonces', icon: SpeakerWaveIcon },
   { name: 'Galerie', href: '/galerie', icon: PhotoIcon },
   { name: 'Apprentissage', href: '/apprentissage', icon: AcademicCapIcon },
 ];
@@ -32,6 +32,7 @@ interface MobileMenuProps {
 
 const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose }) => {
   const location = useLocation();
+  const { signOut } = useAuth();
 
   return (
     <Transition.Root show={isOpen} as={Fragment}>
@@ -111,6 +112,26 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose }) => {
                   </NavLink>
                 ))}
               </nav>
+              
+              {/* Sign out button */}
+              <div className="mt-6 px-2">
+                <button
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('[MobileMenu] Sign out button clicked');
+                    onClose(); // Close menu first
+                    try {
+                      await signOut();
+                    } catch (error) {
+                      console.error('[MobileMenu] Error during sign out:', error);
+                    }
+                  }}
+                  className="w-full flex items-center px-2 py-2 text-base font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                >
+                  Se déconnecter
+                </button>
+              </div>
             </div>
           </div>
         </Transition.Child>

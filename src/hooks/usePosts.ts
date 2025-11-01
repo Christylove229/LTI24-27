@@ -3,6 +3,19 @@ import { supabase, Post } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 
+// Fonction utilitaire pour obtenir l'emoji de réaction
+const getReactionEmoji = (reactionType: string): string => {
+  const emojiMap: { [key: string]: string } = {
+    like: '👍',
+    love: '❤️',
+    wow: '😮',
+    laugh: '😂',
+    sad: '😢',
+    angry: '😠'
+  };
+  return emojiMap[reactionType] || '👍';
+};
+
 export const usePosts = (limit = 10) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
@@ -150,10 +163,10 @@ export const usePosts = (limit = 10) => {
         .eq('user_id', user.id)
         .eq('target_type', 'post')
         .eq('target_id', postId)
-        .single();
+        .maybeSingle(); // Utiliser maybeSingle() au lieu de single()
 
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        // PGRST116 = no rows returned, which is fine
+      if (fetchError) {
+        console.error('Error fetching existing reaction:', fetchError);
         throw fetchError;
       }
 
@@ -190,6 +203,30 @@ export const usePosts = (limit = 10) => {
 
         if (insertError) throw insertError;
         toast.success('Réaction ajoutée');
+        
+        // Créer une notification pour l'auteur du post (si ce n'est pas soi-même)
+        const post = posts.find(p => p.id === postId);
+        if (post && post.author_id !== user.id) {
+          try {
+            await supabase
+              .from('notifications')
+              .insert({
+                user_id: post.author_id,
+                type: 'reaction',
+                title: 'Nouvelle réaction',
+                message: `${user.email} a réagi à votre publication avec ${getReactionEmoji(reactionType)}`,
+                data: {
+                  post_id: postId,
+                  reaction_type: reactionType,
+                  reactor_id: user.id,
+                  reactor_name: user.email
+                }
+              });
+          } catch (notificationError) {
+            console.error('Error creating notification:', notificationError);
+            // Ne pas faire échouer la réaction si la notification échoue
+          }
+        }
       }
 
       // Rafraîchir les posts pour mettre à jour les compteurs
@@ -219,6 +256,31 @@ export const usePosts = (limit = 10) => {
         .single();
 
       if (error) throw error;
+
+      // Créer une notification pour l'auteur du post (si ce n'est pas soi-même)
+      const post = posts.find(p => p.id === postId);
+      if (post && post.author_id !== user.id) {
+        try {
+          await supabase
+            .from('notifications')
+            .insert({
+              user_id: post.author_id,
+              type: 'comment',
+              title: 'Nouveau commentaire',
+              message: `${user.email} a commenté votre publication : "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`,
+              data: {
+                post_id: postId,
+                comment_id: data.id,
+                commenter_id: user.id,
+                commenter_name: user.email,
+                comment_content: content
+              }
+            });
+        } catch (notificationError) {
+          console.error('Error creating comment notification:', notificationError);
+          // Ne pas faire échouer le commentaire si la notification échoue
+        }
+      }
 
       // Rafraîchir les posts pour mettre à jour les compteurs
       fetchPosts();

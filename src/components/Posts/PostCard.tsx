@@ -115,7 +115,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, onReact, onComment, onDelete 
             </p>
             <a
               href={post.file_url}
-              target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
             >
@@ -130,14 +129,15 @@ const PostCard: React.FC<PostCardProps> = ({ post, onReact, onComment, onDelete 
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-4">
-      {/* Header */}
+    <div
+      id={`post-${post.id}`} // Ajouter un ID pour la navigation
+      className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden"
+    >  {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
           {post.author?.avatar_url ? (
             <img
               className="h-10 w-10 rounded-full"
-              src={post.author.avatar_url}
               alt={post.author.full_name}
             />
           ) : (
